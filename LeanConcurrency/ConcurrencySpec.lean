@@ -86,11 +86,6 @@ def existsOne (s : State N) : Prop :=
 
 -- the three predicates appearing in the TLA+ theorem.
 
-/-- the type-correctness predicate is vacuous in Lean because the
-types already enforce it, but we keep it for correspondence. -/
-def TypeOk (s : State N) : Prop :=
-  True
-
 /-- if every process has stopped then at least one has set `y` to 1. -/
 def Invariant (s : State N) : Prop :=
   allStopped s → existsOne s
