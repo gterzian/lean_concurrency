@@ -1,0 +1,10 @@
+name = "lean_concurrency"
+version = "0.1.0"
+defaultTargets = ["lean_concurrency"]
+
+[[lean_lib]]
+name = "LeanConcurrency"
+
+[[lean_exe]]
+name = "lean_concurrency"
+root = "Main"
