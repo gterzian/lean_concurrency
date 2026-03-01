@@ -35,8 +35,11 @@ def main : IO Unit := do
   let n :=
     match maybeEnv with
     | some s => match s.toNat? with
-                | some k => k
-                | none   => 3
-    | none   => 3
-  println s!"spawning {n} threads (default 3)";
-  runIO n
+                  | some k => k
+                  | none   => 3
+      | none   => 3
+    println s!"spawning {n} threads (default 3)";
+    if h : n > 0 then
+      runIO n h
+    else
+      IO.println "nthreads must be > 0"
