@@ -39,7 +39,7 @@ def main : IO Unit := do
                   | none   => 3
       | none   => 3
     println s!"spawning {n} threads (default 3)";
-    if h : n > 0 then
+    if h : 1 < n then
       runIO n h
     else
-      IO.println "nthreads must be > 0"
+      IO.println "nthreads must be > 1"

@@ -96,12 +96,11 @@ cardinality-based formulation in `spec.tla`. -/
 def Invariant (s : State N) : Prop :=
   stoppingCond s → existsOne s
 
-/-- a stronger inductive property: if a process’s `y`-value is
-`some true` then its corresponding `x` must already be `true`.  the
-previous version only required non-`none` values, but the new form
-matches the user’s suggestion and simplifies later reasoning. -/
 def InductiveInvariant (s : State N) : Prop :=
-  ∀ p : Process N, s.y p = some true → s.x p = true
+  ∀ p : Process N,
+    s.x p = true →
+      (s.y p = some true ∨
+       ∃ pp : Process N, (pp ≠ p) ∧ (s.x pp = false ∨ s.y pp = some true))
 
 /-- with the stronger stopping condition every `y` is `some true`, the
 invariant follows immediately by picking an arbitrary process. -/
@@ -117,8 +116,43 @@ end State
 
 open State
 
+-- when there is more than one process the `pred` function never
+-- returns the element itself; we use this fact repeatedly below.
+private theorem pred_ne_self (p : Process N) (hN2 : 1 < N) :
+    pred p ≠ p := by
+  rcases p with ⟨k, hk⟩
+  intro hEq
+  have hVal : ((k + N - 1) % N) = k := congrArg Fin.val hEq
+  cases k with
+  | zero =>
+      have hNpos : 0 < N := Nat.lt_trans Nat.zero_lt_one hN2
+      have hNm1_lt : N - 1 < N := Nat.sub_lt hNpos (Nat.succ_pos 0)
+      have hNm1_pos : 0 < N - 1 := Nat.sub_pos_of_lt hN2
+      have hmod : ((0 + N - 1) % N) = N - 1 := by
+        simp [Nat.mod_eq_of_lt hNm1_lt]
+      have : N - 1 = 0 := by
+        simpa [hmod] using hVal
+      exact (Nat.ne_of_gt hNm1_pos) this
+  | succ k' =>
+      have hk' : k' < N := Nat.lt_trans (Nat.lt_succ_self k') hk
+      have hrewrite : Nat.succ k' + N - 1 = k' + N := by
+        calc
+          Nat.succ k' + N - 1 = Nat.succ (k' + N) - 1 := by
+            simp [Nat.succ_eq_add_one, Nat.add_assoc, Nat.add_comm]
+          _ = k' + N := Nat.succ_sub_one (k' + N)
+      have hmod : ((Nat.succ k' + N - 1) % N) = (k' % N) := by
+        calc
+          ((Nat.succ k' + N - 1) % N) = ((k' + N) % N) := by simp [hrewrite]
+          _ = (k' % N) := Nat.add_mod_right k' N
+      have : k' = Nat.succ k' := by
+        calc
+          k' = (k' % N) := by symm; exact Nat.mod_eq_of_lt hk'
+          _ = ((Nat.succ k' + N - 1) % N) := by symm; exact hmod
+          _ = Nat.succ k' := by simpa using hVal
+      exact (Nat.ne_of_lt (Nat.lt_succ_self k')) this
+
 theorem step_preserves_ind_inv {s t : State N} (hstep : step s t)
-  (hind : InductiveInvariant s) : InductiveInvariant t := by
+  (hind : InductiveInvariant s) (hN2 : 1 < N) : InductiveInvariant t := by
   intro q hy
   cases hstep with
   | stop _ =>
@@ -130,21 +164,50 @@ theorem step_preserves_ind_inv {s t : State N} (hstep : step s t)
       by_cases hqp : q = p
       · -- q = p, so t.x q = true by definition
         subst hqp
-        simp [setNum]
+        by_cases hpred : s.x (pred q) = true
+        · left
+          simp [setNum, hpred]
+        · right
+          refine ⟨pred q, ?_⟩
+          constructor
+          · exact pred_ne_self q hN2
+          · left
+            have hneq : pred q ≠ q := pred_ne_self q hN2
+            simp [setNum, hneq, hpred]
       · -- q ≠ p: the `some true` must come from the old state
-        have hy' : s.y q = some true := by
-          have : (if q = p then some (s.x (pred p)) else s.y q) = some true := hy
-          simp [hqp] at this
-          exact this
-        have : s.x q = true := hind q hy'
-        simp [setNum, hqp, this]
-
--- when there is more than one process the `pred` function never
--- returns the element itself; we use this fact repeatedly below.
--- (the proof is omitted to keep the file small)
--- private theorem pred_ne_self {s : State N} (p : Process N) (hN2 : 1 < N) :
---     pred p ≠ p := by
---   sorry
+        have hxq : s.x q = true := by
+          simpa [hqp] using hy
+        rcases hind q hxq with hyq | hpp
+        · left
+          simp [setNum, hqp, hyq]
+        · right
+          rcases hpp with ⟨pp, hpp_ne, hpp_prop⟩
+          by_cases hppp : pp = p
+          · have hppeq : p = pp := hppp.symm
+            by_cases hpred : s.x (pred p) = true
+            · refine ⟨p, ?_⟩
+              constructor
+              · simpa [hppeq] using hpp_ne
+              · right
+                simp [setNum, hpred]
+            · refine ⟨pred p, ?_⟩
+              constructor
+              · intro hpredq
+                have : s.x (pred p) = true := by simpa [hpredq] using hxq
+                exact hpred this
+              · left
+                have hpredp : pred p ≠ p := pred_ne_self p hN2
+                simp [setNum, hpredp, hpred]
+          · refine ⟨pp, ?_⟩
+            constructor
+            · exact hpp_ne
+            · cases hpp_prop with
+              | inl hxf =>
+                  left
+                  simp [setNum, hppp, hxf]
+              | inr hypp =>
+                  right
+                  simp [setNum, hppp, hypp]
 
 
 -- the lemma below is not needed for our development; we comment it

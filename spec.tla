@@ -19,11 +19,11 @@ TypeOk == /\ x \in [Process -> Value]
 \* y[i] equals 1 for at least one process i
 Invariant == /\ Cardinality({p \in Process: y[p] \notin {NoVal}}) = N
                 => Cardinality({p \in Process: y[p] = 1}) > 0
-
-\* For all processes: 
-\* Having set y implies having set x to one. 
+ 
 InductiveInvariant == \A p \in Process: 
-                        /\ y[p] \notin {NoVal} => x[p] = 1               
+                        /\ x[p] = 1 => \/ y[p] = 1        
+                                       \/ \E pp \in Process: \/ x[pp] = 0
+                                                             \/ y[pp] = 1
 -----------------------------------------------------------------------------
 
 Init == /\ x = [p \in Process |-> 0]
